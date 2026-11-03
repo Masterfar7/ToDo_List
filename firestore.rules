@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+  function validTask() {
+   let data = request.resource.data;
+   return data.keys().hasAll(['text', 'completed', 'createdAt', 'updatedAt'])
+    && data.keys().hasOnly(['text', 'completed', 'createdAt', 'updatedAt'])
+    && data.text is string && data.text.size() > 0 && data.text.size() <= 300
+    && data.text.matches('.*[^\\s].*')
+    && data.completed is bool
+    && data.createdAt is timestamp && data.updatedAt is timestamp;
+  }
+  match /users/{uid}/tasks/{taskId} {
+   allow read: if owner(uid);
+   allow create: if owner(uid) && validTask()
+    && request.resource.data.createdAt == request.time
+    && request.resource.data.updatedAt == request.time;
+   allow update: if owner(uid) && validTask()
+    && request.resource.data.createdAt == resource.data.createdAt
+    && request.resource.data.updatedAt == request.time;
+   allow delete: if owner(uid);
+  }
+ }
+}
